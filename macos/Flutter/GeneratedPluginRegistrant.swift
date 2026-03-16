@@ -5,8 +5,8 @@
 import FlutterMacOS
 import Foundation
 
-import flutter_inappwebview_macos
+import flutter_appauth
 
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
-  InAppWebViewFlutterPlugin.register(with: registry.registrar(forPlugin: "InAppWebViewFlutterPlugin"))
+  FlutterAppauthPlugin.register(with: registry.registrar(forPlugin: "FlutterAppauthPlugin"))
 }

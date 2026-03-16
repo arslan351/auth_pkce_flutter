@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:dio/dio.dart'; // Add this
-import 'login_page.dart';
+import 'package:flutter/services.dart';
+import 'DashboardPage.dart';
+import 'auth_service.dart';
 
 void main() {
   runApp(const MyApp());
@@ -14,72 +15,70 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Auth Test App',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: const HomePage(),
+      home: HomePage(),
     );
   }
 }
 
 class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+  final AuthService _authService = AuthService();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Home')),
       body: Center(
         child: ElevatedButton(
-          onPressed: () async {
-            // 1. Wait for the result from LoginPage
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const LoginPage(),
-              ),
-            );
+          // Inside your HomePage ElevatedButton onPressed:
 
-            // 2. Check if we got the Map {'code': ..., 'verifier': ...}
-            if (result != null && result is Map) {
-              final String code = result['code'];
-              final String verifier = result['verifier'];
+          /*onPressed: () async {
+            // 1. Perform login
+            try {
+              await _authService.login();
+            } on PlatformException catch (e) {
+              print("ErrorCode: ${e.code}");
+              print("ErrorMessage: ${e.message}");
+              print("ErrorDetails: ${e.details}"); // This often contains the server's error message
+            } catch (e) {
+              print("General Error: $e");
+            }
 
-              print('Step 1 Success! Code: $code');
-
-              // 3. Use Dio to exchange that code for a Token
-              final dio = Dio();
-
-              try {
-                final response = await dio.post(
-                  'http://192.168.73.169:8080/auth/oauth2/token',
-                  data: {
-                    'grant_type': 'authorization_code',
-                    'client_id': 'djezzy-student-campuce-mobile',
-                    'code': code,
-                    'redirect_uri': 'myapp://auth/callback',
-                    'code_verifier': verifier,
-                  },
-                  options: Options(
-                    contentType: Headers.formUrlEncodedContentType,
+            // 2. Navigate to Dashboard, passing the authenticated Dio client
+            if (_authService.dio.interceptors.isNotEmpty) {
+              if (context.mounted) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => DashboardPage(dio: _authService.dio)
                   ),
                 );
-
-                if (response.statusCode == 200) {
-                  // Dio parses the JSON automatically
-                  final accessToken = response.data['access_token'];
-
-                  print("----------------------");
-                  print('SUCCESS! Token received: $accessToken');
-                  print("----------------------");
-                }
-              } on DioException catch (e) {
-                print("----------------------");
-                print('Token Exchange Error: ${e.response?.data ?? e.message}');
-                print("----------------------");
               }
             }
+          },*/
+
+          onPressed: () async {
+            final token = await _authService.login();
+
+            if (token != null && context.mounted) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => DashboardPage(dio: _authService.dio),
+                ),
+              );
+            } else {
+              // Show a snackbar or alert that login failed
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Login failed or cancelled')),
+              );
+            }
           },
+
+
           child: const Text('Login'),
         ),
       ),
     );
   }
 }
+
+
