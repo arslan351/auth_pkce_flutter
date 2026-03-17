@@ -1,3 +1,4 @@
+import 'package:auth_test_project/storage_service.dart';
 import 'package:flutter_appauth/flutter_appauth.dart';
 import 'package:dio/dio.dart';
 
@@ -7,10 +8,19 @@ class AuthService {
   final FlutterAppAuth _appAuth = FlutterAppAuth();
   final Dio dio = Dio();
 
+  final ApiClient _apiClient = ApiClient();
+
   // Configuration Constants
-  static const String clientId = 'djezzy-student-campuce-mobile';
-  static const String redirectUri = 'myapp://auth/callback';
-  static const String issuer = 'http://192.168.73.169:8080/auth';
+  static const String _clientId = 'djezzy-student-campuce-mobile';
+  static const String _redirectUri = 'myapp://auth/callback';
+  static const String _issuer = 'http://192.168.73.169:8080/auth';
+
+  // Manually define the configuration to bypass discovery completely
+  static const _serviceConfig = AuthorizationServiceConfiguration(
+    authorizationEndpoint: 'http://192.168.73.169:8080/auth/oauth2/authorize',
+    tokenEndpoint: 'http://192.168.73.169:8080/auth/oauth2/token',
+    endSessionEndpoint: 'http://192.168.73.169:8080/auth/connect/logout',
+  );
 
   /*Future<void> login() async {
     try {
@@ -44,37 +54,59 @@ class AuthService {
   }
 */
 
-
-
   Future<String?> login() async {
     try {
-      // Manually define the configuration to bypass discovery completely
-      final serviceConfiguration = AuthorizationServiceConfiguration(
-        authorizationEndpoint: 'http://192.168.73.169:8080/auth/oauth2/authorize',
-        tokenEndpoint: 'http://192.168.73.169:8080/auth/oauth2/token',
-        endSessionEndpoint: 'http://192.168.73.169:8080/auth/connect/logout',
-      );
-
-      final AuthorizationTokenResponse? result =
-      await _appAuth.authorizeAndExchangeCode(
+      final AuthorizationTokenResponse? result = await _appAuth.authorizeAndExchangeCode(
         AuthorizationTokenRequest(
-          clientId,
-          redirectUri,
-          serviceConfiguration: serviceConfiguration, // Use manual config
-          scopes: ['openid','offline_access'],
-          allowInsecureConnections: true, // Keep this
+          _clientId,
+          _redirectUri,
+          serviceConfiguration: _serviceConfig,
+          scopes: ['openid', 'offline_access'],
+          allowInsecureConnections: true,
         ),
       );
 
       if (result != null) {
-        print('Login Success: ${result.accessToken}');
-        ApiClient.setToken(result.accessToken!);
-        return result.accessToken; // RETURN THE TOKEN HERE
+        // Save to Secure Storage immediately
+        await StorageService().saveTokens(result.accessToken!, result.refreshToken);
+        return result.accessToken;
       }
     } catch (e) {
       print('Auth Error: $e');
     }
-    return null; // Return null only if something failed
+    return null;
+  }
+
+
+  Future<TokenResponse?> refreshAccessToken(String oldRefreshToken) async {
+    try {
+      final TokenResponse? response = await _appAuth.token(
+        TokenRequest(
+          _clientId,
+          _redirectUri,
+          serviceConfiguration: _serviceConfig,
+          refreshToken: oldRefreshToken,
+          scopes: ['openid', 'offline_access'],
+          allowInsecureConnections: true,
+        ),
+      );
+
+      if (response != null && response.accessToken != null) {
+        // ROTATION: The server gives us a new access token AND a new refresh token
+        await StorageService().saveTokens(
+            response.accessToken!,
+            response.refreshToken // This could be the same or a new rotated one
+        );
+
+        print("Tokens rotated and saved successfully.");
+        return response;
+      }
+    } catch (e) {
+      print('Token refresh failed: $e');
+      // If the refresh token is rejected, the session is dead.
+      await StorageService().deleteTokens();
+    }
+    return null;
   }
 
 

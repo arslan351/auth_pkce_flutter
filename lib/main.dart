@@ -1,84 +1,38 @@
+import 'package:auth_test_project/storage_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'DashboardPage.dart';
+import 'HomePage.dart';
+import 'api_client.dart';
 import 'auth_service.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async{
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final authService = AuthService();
+  await ApiClient().init(authService);
+
+  // Check for existing session
+  final String? savedToken = await StorageService().getAccessToken();
+  final bool isLoggedIn = savedToken != null;
+
+  runApp(MyApp(isLoggedIn: isLoggedIn));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool isLoggedIn ;
+
+  const MyApp({super.key, required this.isLoggedIn});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Auth Test App',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: HomePage(),
+      home: isLoggedIn ? const DashboardPage() : HomePage(),
     );
   }
 }
 
-class HomePage extends StatelessWidget {
-  final AuthService _authService = AuthService();
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: ElevatedButton(
-          // Inside your HomePage ElevatedButton onPressed:
-
-          /*onPressed: () async {
-            // 1. Perform login
-            try {
-              await _authService.login();
-            } on PlatformException catch (e) {
-              print("ErrorCode: ${e.code}");
-              print("ErrorMessage: ${e.message}");
-              print("ErrorDetails: ${e.details}"); // This often contains the server's error message
-            } catch (e) {
-              print("General Error: $e");
-            }
-
-            // 2. Navigate to Dashboard, passing the authenticated Dio client
-            if (_authService.dio.interceptors.isNotEmpty) {
-              if (context.mounted) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => DashboardPage(dio: _authService.dio)
-                  ),
-                );
-              }
-            }
-          },*/
-
-          onPressed: () async {
-            final token = await _authService.login();
-
-            if (token != null && context.mounted) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => DashboardPage(dio: _authService.dio),
-                ),
-              );
-            } else {
-              // Show a snackbar or alert that login failed
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Login failed or cancelled')),
-              );
-            }
-          },
-
-
-          child: const Text('Login'),
-        ),
-      ),
-    );
-  }
-}
 
 

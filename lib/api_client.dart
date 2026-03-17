@@ -1,19 +1,20 @@
+import 'package:auth_test_project/storage_service.dart';
 import 'package:dio/dio.dart';
+import 'AuthInterceptor.dart';
+import 'auth_service.dart';
+
 
 class ApiClient {
-  // Static instance (Singleton)
-  static final Dio _dio = Dio();
+  static final ApiClient _instance = ApiClient._internal();
+  factory ApiClient() => _instance;
+  ApiClient._internal();
 
-  static Dio get dio => _dio;
+  final Dio _dio = Dio();
+  Dio get dio => _dio;
 
-  // Call this immediately after getting the token in your Auth flow
-  static void setToken(String token) {
-    _dio.interceptors.clear();
-    _dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) {
-        options.headers['Authorization'] = 'Bearer $token';
-        return handler.next(options);
-      },
-    ));
+  // Initialize once in your app startup
+  Future<void> init(AuthService authService) async {
+    await StorageService().deleteTokens();
+    _dio.interceptors.add(AuthInterceptor(_dio, authService));
   }
 }
